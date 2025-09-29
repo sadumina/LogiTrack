@@ -5,10 +5,17 @@ from app.database import db
 
 app = FastAPI(title="FuelTrackr API")
 
+# ✅ Allowed origins (React dev + add production later)
+origins = [
+    "http://localhost:5173",   # Vite dev server
+    "http://127.0.0.1:5173",   # alternative local address
+    # "https://your-frontend-domain.com",  # add production frontend here
+]
+
 # ✅ CORS setup
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # you can restrict this later to frontend URL
+    allow_origins=origins,       # must be explicit, not "*"
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
