@@ -70,7 +70,7 @@ async def login_user(req: LoginRequest):
     to_encode = {
         "sub": user["email"],
         "role": user["role"],
-        "exp": datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+        "exp": datetime.utcnow() + timedelta(minutes=60)
     }
     token = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
