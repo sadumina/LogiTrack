@@ -6,7 +6,7 @@ from jose import jwt
 from datetime import datetime, timedelta
 import os
 from dotenv import load_dotenv
-from app.auth import get_current_user
+from app.auth import get_current_user, role_required
 
 # Load environment
 load_dotenv()
@@ -40,7 +40,6 @@ class TokenResponse(BaseModel):
 # -------------------------
 @router.post("/register")
 async def register_user(req: RegisterRequest):
-    # check if email already exists
     existing = await users_collection.find_one({"email": req.email})
     if existing:
         raise HTTPException(status_code=400, detail="User already exists")
@@ -48,7 +47,7 @@ async def register_user(req: RegisterRequest):
     user = {
         "name": req.name,
         "email": req.email,
-        "password": hash_password(req.password),  # hashed password
+        "password": hash_password(req.password),
         "fuel_card_no": req.fuel_card_no,
         "role": req.role,
         "created_at": datetime.utcnow()
@@ -61,19 +60,16 @@ async def register_user(req: RegisterRequest):
 # -------------------------
 @router.post("/login", response_model=TokenResponse)
 async def login_user(req: LoginRequest):
-    # find user in DB
     user = await users_collection.find_one({"email": req.email})
     if not user or not verify_password(req.password, user["password"]):
         raise HTTPException(status_code=401, detail="Invalid email or password")
 
-    # create JWT token
     to_encode = {
         "sub": user["email"],
         "role": user["role"],
-        "exp": datetime.utcnow() + timedelta(minutes=60)
+        "exp": datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     }
     token = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
-
     return {"access_token": token, "token_type": "bearer"}
 
 # -------------------------
@@ -81,7 +77,15 @@ async def login_user(req: LoginRequest):
 # -------------------------
 @router.get("/me")
 async def get_me(user=Depends(get_current_user)):
-    return {
-        "email": user["sub"],
-        "role": user["role"]
-    }
+    db_user = await users_collection.find_one({"email": user["sub"]}, {"_id": 0, "password": 0})
+    if not db_user:
+        raise HTTPException(status_code=404, detail="User not found")
+    return db_user
+
+# -------------------------
+# Admin: Get All Users
+# -------------------------
+@router.get("/all")
+async def get_all_users(user=Depends(role_required("admin"))):
+    users = await users_collection.find({}, {"_id": 0, "password": 0}).to_list(1000)
+    return users
